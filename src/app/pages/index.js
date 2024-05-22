@@ -1,12 +1,13 @@
-const WebSocket = require("ws");
+import { useEffect } from "react";
+import WebSocket from "ws";
 
-export default async function handler(req, res) {
-  if (!res.socket.server.wss) {
-    const wss = new WebSocket.Server({ noServer: true });
+export default function Home() {
+  useEffect(() => {
+    const wss = new WebSocket.Server({ port: process.env.PORT || 8080 });
+
+    let queue = [];
 
     wss.on("connection", (ws) => {
-      console.log("Client connected");
-
       ws.on("message", (message) => {
         const data = JSON.parse(message);
 
@@ -17,7 +18,6 @@ export default async function handler(req, res) {
           queue = [];
           broadcastQueue();
         }
-        console.log(message);
       });
 
       ws.send(JSON.stringify({ type: "queue", queue }));
@@ -31,8 +31,12 @@ export default async function handler(req, res) {
       });
     }
 
-    res.socket.server.wss = wss;
-  }
+    console.log("WebSocket server is running on ws://localhost:8080");
+  }, []);
 
-  res.end();
+  return (
+    <div>
+      <h1>Next.js with WebSocket</h1>
+    </div>
+  );
 }
