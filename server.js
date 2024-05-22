@@ -1,38 +1,37 @@
+const express = require("express");
+const http = require("http");
 const WebSocket = require("ws");
+const next = require("next");
 
-export default async function handler(req, res) {
-  if (!res.socket.server.wss) {
-    const wss = new WebSocket.Server({ noServer: true });
+const dev = process.env.NODE_ENV !== "production";
+const app = next({ dev });
+const handle = app.getRequestHandler();
 
-    wss.on("connection", (ws) => {
-      console.log("Client connected");
+app.prepare().then(() => {
+  const server = express();
 
-      ws.on("message", (message) => {
-        const data = JSON.parse(message);
-
-        if (data.type === "pressButton") {
-          queue.push(data.color);
-          broadcastQueue();
-        } else if (data.type === "resetQueue") {
-          queue = [];
-          broadcastQueue();
-        }
-        console.log(message);
-      });
-
-      ws.send(JSON.stringify({ type: "queue", queue }));
+  // Handle WebSocket connections
+  const wss = new WebSocket.Server({ noServer: true });
+  server.on("upgrade", (request, socket, head) => {
+    wss.handleUpgrade(request, socket, head, (socket) => {
+      wss.emit("connection", socket, request);
     });
+  });
 
-    function broadcastQueue() {
-      wss.clients.forEach((client) => {
-        if (client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify({ type: "queue", queue }));
-        }
-      });
-    }
+  wss.on("connection", (ws) => {
+    // WebSocket logic here
+  });
 
-    res.socket.server.wss = wss;
-  }
+  // All other requests handled by Next.js
+  server.all("*", (req, res) => {
+    return handle(req, res);
+  });
 
-  res.end();
-}
+  const httpServer = http.createServer(server);
+
+  httpServer.listen(process.env.PORT || 3000, () => {
+    console.log(
+      `Server started on http://localhost:${process.env.PORT || 3000}`
+    );
+  });
+});
